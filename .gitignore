@@ -1,0 +1,7 @@
+*.csv
+*.err
+*.out
+*.json
+*.npy
+*.h5
+

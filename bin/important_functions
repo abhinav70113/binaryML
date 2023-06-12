@@ -1,0 +1,161 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+import seaborn as sns
+G = 6.67408e-11
+c = 2.99792458e8
+M_SUN = 2.0e30
+
+def a_to_pdot(P_s, acc_ms2):
+    LIGHT_SPEED = 2.99792458e8                 # Speed of Light in SI
+    return P_s * acc_ms2 /LIGHT_SPEED
+
+
+def period_modified(p0,pdot,no_of_samples,tsamp,fft_size):
+    if (fft_size==0.0):
+        return p0 - pdot*float(1<<(no_of_samples.bit_length()-1))*tsamp/2
+    else:
+        return p0 - pdot*float(fft_size)*tsamp/2
+
+def calculate_spin(f=None, fdot=None, p=None, pdot=None):
+    # calculate p and pdot from f and fdot
+    if f is not None and fdot is not None:
+        p = 1 / f
+        pdot = -fdot / (f**2)
+    # calculate f and fdot from p and pdot
+    elif p is not None and pdot is not None:
+        f = 1 / p
+        fdot = -pdot * (p**2)
+    else:
+        raise ValueError("Either (f, fdot) or (p, pdot) must be provided")
+        
+    return f, fdot, p, pdot
+
+def return_los_time_velocity_acceleration(  inclination,
+                                            orbital_period,
+                                            obs_time,
+                                            initial_orbital_phase,
+                                            mass_companion,
+                                            mass_pulsar = 1.4,
+                                            longitude_periastron = 0.0,
+                                            eccentricity = 0.0,
+                                            n_samples = 2**8,
+                                            ):
+    '''
+    inclination: inclination angle in degrees
+    orbital_period: orbital period in hours
+    obs_time: observation time in hours
+    initial_orbital_phase: orbital phase at the beginning of the observation (0 to 1)
+    mass_companion: mass of the companion in solar masses
+    mass_pulsar: mass of the pulsar in solar masses
+    longitude_periastron: longitude of periastron in degrees
+    eccentricity: eccentricity of the orbit
+    n_samples: number of samples in the observation
+    '''
+    fake_inclination = inclination
+    fake_orbital_period =  orbital_period * 3600
+    fake_initial_orbital_phase = initial_orbital_phase
+    fake_eccentricity = eccentricity
+    fake_longitude_periastron = longitude_periastron
+    mass_companion = mass_companion
+    mass_pulsar = mass_pulsar
+
+
+    observation_time = obs_time * 3600
+    #observation_time = fake_orbital_period
+
+    n_samples = n_samples
+    time = np.linspace(0, observation_time, n_samples)
+
+    incl = fake_inclination * (np.pi/180)
+    omegaB = 2.0 * np.pi/fake_orbital_period
+    t0 = fake_initial_orbital_phase * fake_orbital_period
+    massFunction = math.pow((mass_companion * np.sin(incl)), 3)/math.pow((mass_companion + mass_pulsar), 2)
+    asini = math.pow(( M_SUN * massFunction * G * fake_orbital_period * \
+                    fake_orbital_period / (4.0 * np.pi * np.pi)), 0.333333333333)
+
+    meanAnomaly = omegaB * (time - t0)
+    eccentricAnomaly = meanAnomaly + fake_eccentricity * np.sin(meanAnomaly) * \
+    (1.0 + fake_eccentricity * np.cos(meanAnomaly))
+
+    du = np.ones(n_samples)
+    for i in range(len(du)):
+        while(abs(du[i]) > 1.0e-13):
+        
+            du[i] = (meanAnomaly[i] - (eccentricAnomaly[i] - fake_eccentricity * \
+                                np.sin(eccentricAnomaly[i])))/(1.0 - fake_eccentricity * np.cos(eccentricAnomaly[i]))
+
+            eccentricAnomaly[i] += du[i]
+
+
+    trueAnomaly = 2.0 * np.arctan(math.sqrt((1.0 + fake_eccentricity)/(1.0 - fake_eccentricity)) \
+                                * np.tan(eccentricAnomaly/2.0))
+
+    los_velocity = omegaB * (asini / (np.sqrt(1.0 - math.pow(fake_eccentricity, 2)))) * \
+            (np.cos(fake_longitude_periastron + trueAnomaly) + fake_eccentricity * np.cos(fake_longitude_periastron))
+
+    los_acceleration = (-1*(omegaB*omegaB)) * (asini / math.pow(1 - math.pow(fake_eccentricity, 2), 2)) * \
+    np.power((1 + (fake_eccentricity * np.cos(trueAnomaly))), 2) * np.sin(fake_longitude_periastron + trueAnomaly)
+
+    # los_jerk = (-1*(omegaB*omegaB*omegaB)) * (asini / math.pow(1 - math.pow(fake_eccentricity, 2), 3.5)) * \
+    #     np.power((1 + (fake_eccentricity * np.cos(trueAnomaly))), 3) * \
+    #     (np.cos(fake_longitude_periastron + trueAnomaly) + fake_eccentricity * np.cos(fake_longitude_periastron) - 3 * \
+    #     fake_eccentricity * np.sin(fake_longitude_periastron + trueAnomaly) * np.sin(trueAnomaly))
+
+    return time, los_velocity, los_acceleration
+
+def return_spin_period_array(pRest,los_velocity):
+    return pRest/(1.0 - (los_velocity / c))
+
+def calculate_asini(orbital_period_seconds,sini,mass_pulsar,mass_companion):
+
+    total_mass = mass_pulsar + mass_companion
+
+    angular_velocity = 2 * np.pi/orbital_period_seconds
+
+
+    projected_radius = sini * G**(1/3) * mass_companion * M_SUN * angular_velocity**(-2/3)/(c * (total_mass * M_SUN)**(2/3))
+
+    return projected_radius
+
+
+def los_calculations_to_prepfold(pApp, acceleration):
+    '''
+    Takes an array of los apparent period and acceleration during the observation and outputs the p and pdot needed for prepfold
+    '''
+    #prepfold needs the apparent period at the beginning of the observation and average pdot in the observation.
+    prepfold_period = pApp[0]
+    mean_acceleration = np.mean(acceleration)
+    prepfold_pdot = a_to_pdot(prepfold_period, mean_acceleration)
+
+    return prepfold_period, prepfold_pdot
+
+
+def accel_search_parameters_to_prepfold(r, z, tsamp, fft_size):
+    '''
+    Takes a specific r and z value corresponding to your detection (middle of tobs) and converts it to the p and pdot needed for prepfold
+    '''
+    tobs = tsamp * fft_size
+    #for accelsearch z stays the same for the whole observation
+    z0 = z
+    #calculate r for the beginning of the observation
+    r0 = r - 0.5 * z0 
+    f0 = r0/tobs
+    fdot0 = z0/(tobs*tobs)
+    f_prepfold, fdot_prepfold, p_prepfold, pdot_prepfold = calculate_spin(f = f0, fdot = fdot0)
+
+    return p_prepfold, pdot_prepfold
+
+def fake_orbital_parameters_to_prepfold_full_eph_fold(orbital_period_hrs, inclination_angle_deg, normalised_orbital_phase, mass_pulsar, mass_companion, eccentricity, omega, tstart):
+    orbital_period_s = orbital_period_hrs * 3600
+    orbital_period_days = orbital_period_hrs/24
+    inclination_angle_rad = inclination_angle_deg * (np.pi/180)
+    sini = np.sin(inclination_angle_rad)
+    asini = calculate_asini(orbital_period_s, sini, mass_pulsar, mass_companion)
+    #Both prepfold and fake uses same orbital phase convention. So no need to convert.
+  
+    periastron_time_mjd = tstart + (normalised_orbital_phase * orbital_period_days)
+
+    return orbital_period_s, asini, periastron_time_mjd, omega, eccentricity
+
+

@@ -1,0 +1,11 @@
+2023-06-12 14:28:36.583044: I tensorflow/stream_executor/platform/default/dso_loader.cc:49] Successfully opened dynamic library libcudart.so.10.1
+Traceback (most recent call last):
+  File "single_index_predict.py", line 95, in <module>
+    Y_train = (Y_train.reshape(Y_train.shape[0],1))
+ValueError: cannot reshape array of size 2400 into shape (1200,1)
+srun: error: hcg040: task 0: Exited with exit code 1
+srun: launch/slurm: _step_signal: Terminating StepId=1184128.0
+
+real	0m15.115s
+user	0m0.007s
+sys	0m0.006s
