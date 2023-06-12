@@ -42,3 +42,7 @@ coreClock: 1.62GHz coreCount: 72 deviceMemorySize: 22.17GiB deviceMemoryBandwidt
 Relying on driver to perform ptx compilation. 
 Modify $PATH to customize ptxas location.
 This message will be only logged once.
+
+real	149m24.699s
+user	0m0.156s
+sys	0m0.583s
