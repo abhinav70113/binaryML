@@ -24,10 +24,10 @@ model_type = sys.argv[2]
 run = 'runBB'
 cur_dir = f'/tmp/Abhinav_DATA{job_id}/'
 #model_type = 'LSTM'
-input_shape = (400,1)
-batch_size = 1200
+input_shape = (800,1)
+batch_size = 400
 epochs = 20000
-patience = 400
+patience = 100
 best_model_name = f'{cur_dir}models/chunk_classify_{model_type}_{job_id}_'
 root_dir = '/hercules/scratch/atya/BinaryML/'
 
@@ -169,7 +169,7 @@ def attention_model(input_shape = (400,2)):
     x = tf.keras.layers.Conv1D(filters=256, kernel_size=7, padding='same', activation='relu')(x)
     x = tf.keras.layers.Conv1D(filters=512, kernel_size=7, padding='same',activation='relu')(x)
     # Apply Multihead Attention
-    x = MultiHeadAttention(num_heads=2, key_dim=2)(x,x)
+    x = MultiHeadAttention(num_heads=2, key_dim=256)(x,x)
     #x = MultiHeadAttention(num_heads=4, key_dim=2)(x,x)
     #x = MultiHeadAttention(num_heads=8, key_dim=2)(x,x)
 
@@ -177,7 +177,7 @@ def attention_model(input_shape = (400,2)):
     x = tf.keras.layers.Dense(64, activation='relu')(x)
     x = tf.keras.layers.Dense(192, activation='relu')(x)
     x = tf.keras.layers.Dense(256, activation='relu')(x)
-    outputs = tf.keras.layers.Dense(2, activation='softmax')(x)
+    outputs = tf.keras.layers.Dense(4, activation='softmax')(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
@@ -213,7 +213,7 @@ def cnn_model(input_shape = (400,2)):
     x = tf.keras.layers.Dense(64, activation='relu')(x)
     x = tf.keras.layers.Dense(128, activation='relu')(x)
     x = tf.keras.layers.Dense(256, activation='relu')(x)
-    outputs = tf.keras.layers.Dense(2, activation='softmax')(x)
+    outputs = tf.keras.layers.Dense(4, activation='softmax')(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
@@ -255,9 +255,9 @@ model = current_model(model_name = model_type,input_shape=input_shape)
 #Learning rate exponentia
 
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate=0.0005,
+    initial_learning_rate=0.0001,
     decay_steps=10000,
-    decay_rate=0.9)
+    decay_rate=0.5)
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 
 model.compile(optimizer=optimizer, 

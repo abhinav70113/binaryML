@@ -23,7 +23,7 @@ run = 'runBB'
 cur_dir = f'/tmp/Abhinav_DATA{job_id}/'
 #model_type = 'LSTM'
 input_shape = (400,1)
-batch_size = 1200
+batch_size = 400
 epochs = 20000
 patience = 400
 best_model_name = f'{cur_dir}models/f_predict_{model_type}_{job_id}_'
@@ -72,13 +72,13 @@ Y_val = np.load(cur_dir + f'raw_data/{run}/val_labels_chunk.npy').astype(np.floa
 # Y_train[:,1] = Y_train[:,0] + z_train
 # Y_train = np.sort(Y_train,axis=1)
 
-# Y_train = np.abs(Y_train[:,0])
-# Y_test = np.abs(Y_test[:,0])
-# Y_val = np.abs(Y_val[:,0])
+Y_train = np.abs(Y_train[:,0])
+Y_test = np.abs(Y_test[:,0])
+Y_val = np.abs(Y_val[:,0])
 
-Y_train = 2*np.abs(Y_train[:,1])
-Y_test = 2*np.abs(Y_test[:,1])
-Y_val = 2*np.abs(Y_val[:,1])
+# Y_train = 2*np.abs(Y_train[:,1])
+# Y_test = 2*np.abs(Y_test[:,1])
+# Y_val = 2*np.abs(Y_val[:,1])
 
 # Y_train = Y_train/400
 # Y_test = Y_test/400
@@ -301,62 +301,25 @@ def dense_model(input_shape = (400,2)):
 
 def cnn_model(input_shape = (400,2)):
     inputs = tf.keras.Input(shape=input_shape)
-    #x = ResidualBlock(inputs, filters=192, kernel_size=5)
-    #x = ResidualBlock(x, filters=240, kernel_size=7)
-    #x = tf.keras.layers.Flatten()(x)
+    x = layers.Conv1D(608, 75,padding = "same")(inputs)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
 
-    # x = layers.Conv1D(64, 3)(inputs)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
-    # x = layers.MaxPooling1D(2)(x)
-    
-    # x = layers.Conv1D(128, 5)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
-    # x = layers.MaxPooling1D(2)(x)
-    
-    # x = layers.Conv1D(256, 7)(x)
-    # #x = layers.MaxPooling1D(2)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
+    x = layers.Conv1D(832,94,padding = "same")(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
 
-    # x = layers.Conv1D(512, 4)(x)
-    # #x = layers.MaxPooling1D(2)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
+    x = layers.Conv1D(216,112,padding = "same")(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
 
-    # x = layers.Conv1D(1024, 3)(x)
-    # #x = layers.MaxPooling1D(2)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
+    x = layers.Conv1D(656,114,padding = "same")(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation('relu')(x)
 
-    # x = layers.Conv1D(2048, 3)(x)
-    # #x = layers.MaxPooling1D(2)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
-
-    # x = layers.Conv1D(2048, 3)(x)
-    # #x = layers.MaxPooling1D(2)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
-
-    # x = layers.Conv1D(2048, 3)(x)
-    # #x = layers.MaxPooling1D(2)(x)
-    # #x = tf.keras.layers.BatchNormalization()(x)
-    # x = tf.keras.layers.Activation('relu')(x)
-    # # Apply Conv1D layers
-    x = tf.keras.layers.Conv1D(filters=64, kernel_size=5, padding='same',activation='relu')(inputs)
-    x = tf.keras.layers.Conv1D(filters=128, kernel_size=7, padding='same',activation='relu')(x)
-    x = tf.keras.layers.Conv1D(filters=256, kernel_size=7, padding='same',activation='relu')(x)
-    x = tf.keras.layers.Conv1D(filters=512, kernel_size=7, padding='same',activation='relu')(x)
-    # x = tf.keras.layers.Conv1D(filters=512, kernel_size=7, padding='same',dilation_rate = 32, activation='relu')(x)
-    # x = tf.keras.layers.Conv1D(filters=512, kernel_size=7, padding='same',dilation_rate = 64, activation='relu')(x)
-    # x = tf.keras.layers.Conv1D(filters=512, kernel_size=7, padding='same',dilation_rate = 64, activation='relu')(x)
-    # x = tf.keras.layers.Conv1D(filters=512, kernel_size=7, padding='same',dilation_rate = 64, activation='relu')(x)
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(64, activation='relu')(x)
-    x = tf.keras.layers.Dense(128, activation='relu')(x)
-    x = tf.keras.layers.Dense(256, activation='relu')(x)
+    x = tf.keras.layers.Dense(88, activation='relu')(x)
+    x = tf.keras.layers.Dense(400, activation='relu')(x)
     outputs = tf.keras.layers.Dense(1, activation='relu')(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
@@ -399,9 +362,9 @@ model = current_model(model_name = model_type,input_shape=input_shape)
 #Learning rate exponentia
 
 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate=0.0005,
+    initial_learning_rate=0.00011,
     decay_steps=10000,
-    decay_rate=0.9)
+    decay_rate=0.5)
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
 
 # Compile the model with mean squared error loss

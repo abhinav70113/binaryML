@@ -10,14 +10,14 @@ def myexecute(cmd):
     os.system("echo '%s'"%cmd)
     os.system(cmd)
 
-run = 'BB'
-size = 2000
+run = 'BC'
+size = 10000
+fft_size = 16777216
 #not done 18-24
 #done  24(1152) -42
 start_ind = int(sys.argv[2])
-end_ind = int(sys.argv[3])
 start = start_ind*48 
-end = end_ind*48
+end = (start_ind+1)*48
 if end > size:
     end = size
 job_id = sys.argv[1]
@@ -38,7 +38,7 @@ myexecute(f'mkdir -p /tmp/Abhinav_DATA{job_id}/sims/')
 # bphase_array = np.random.uniform(0, 1, size) #binary phase
 
 
-csv = pd.read_csv(f'/hercules/results/atya/BinaryML/sims/run{run}/highSNR_run{run}.csv')
+csv = pd.read_csv(f'/hercules/scratch/atya/BinaryML/meta_data/labels_run{run}.csv')
 ind_array = csv['# ind'].values[start:end]
 period_array = csv['period'].values[start:end]*1000 #Uniform period in ms
 width_array = csv['width'].values[start:end]
@@ -67,7 +67,7 @@ def fake(ind,period,snr,width,bper,binc,bcmass,bphase,run):
     sing_prefix = 'singularity exec -H $HOME:/home1 -B /hercules:/hercules/  /hercules/scratch/atya/compare_pulsar_search_algorithms.simg '
     fake_prefix = '/home/psr/software/psrsoft/usr/src/sixproc/src/fake ' # 268.435456
     myexecute(sing_prefix+fake_prefix+f'-period {period} -snrpeak {snr} -width {width} -dm 40 -nbits 8 -tsamp 64 -tobs 1080 -nchans 1024 -fch1 2843.75 -foff 0.8544921875 -binary -bper {bper} -becc 0.0 -binc {binc} -bpmass 1.4 -bcmass {bcmass} -bphase {bphase} > {current_dir}obs{ind}{run}.fil')   
-    myexecute(sing_prefix+f'prepdata -dm 40.0 -nobary -o {current_dir}obs{ind}{run} {current_dir}obs{ind}{run}.fil')
+    myexecute(sing_prefix+f'prepdata -dm 40.0 -nobary -numout {fft_size} -o {current_dir}obs{ind}{run} {current_dir}obs{ind}{run}.fil')
     myexecute(f'rm {current_dir}obs{ind}{run}.fil'.format(ind,current_dir,run))
     myexecute(f'echo \"\n\n\n\n############################################################################## \n\n\n Number:{ind} done \n\n\n ############################################################################## \n\n\n \"')
     
