@@ -9,10 +9,12 @@ from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 import tensorflow_probability as tfp
 import ast
+import json
 from tensorflow.keras.layers import MultiHeadAttention
 from sklearn.metrics import accuracy_score
 from tensorflow.keras.callbacks import Callback
-
+from BaseClass import Models
+import pandas as pd
 def myexecute(cmd):
     if 'echo' not in cmd[:20]:
         os.system("echo '%s'"%cmd)
@@ -21,15 +23,20 @@ def myexecute(cmd):
 
 job_id = sys.argv[1]
 model_type = sys.argv[2]
-run = 'runBB'
+run = 'runBD'
+index = 0
 cur_dir = f'/tmp/Abhinav_DATA{job_id}/'
 #model_type = 'LSTM'
 input_shape = (800,1)
 batch_size = 400
 epochs = 20000
 patience = 100
+snr_group = 1
 best_model_name = f'{cur_dir}models/chunk_classify_{model_type}_{job_id}_'
 root_dir = '/hercules/scratch/atya/BinaryML/'
+
+list_of_dicts = json.load(open(f'{root_dir}hyperparameter_tuning/cnn/list_of_dicts.json'))
+param_dict = list_of_dicts[index]
 
 myexecute(f'echo \"\n\n\n\n############################################################################## \n\n\n \
           Comment: Binary simulations predictor: Classifying chunks \nBest model is under:{best_model_name} \
@@ -39,24 +46,24 @@ myexecute(f'mkdir -p {cur_dir}raw_data/{run}/')
 myexecute(f'mkdir -p {cur_dir}models/')
 
 #files to sync
-files1 = glob.glob(f'{root_dir}raw_data/{run}/*classifier.npy')
-# files1.extend(glob.glob(f'{root_dir}raw_data/{run}/*labels_{run}.npy'))
+files1 = glob.glob(f'{root_dir}raw_data/{run}/*classifier_{input_shape[0]}.npy')
+#files1.extend(glob.glob(f'{root_dir}raw_data/{run}/*indices.npy'))
 for file in files1:
     myexecute(f'rsync -Pav -q {file} {cur_dir}raw_data/{run}/')
 
 # freq_axis = np.fft.rfftfreq(17280000, d=64e-6)
 # freq_res = freq_axis[1]-freq_axis[0]
 
-X_train = np.load(cur_dir + f'raw_data/{run}/train_data_classifier.npy').astype(np.float64)
-X_test = np.load(cur_dir + f'raw_data/{run}/test_data_classifier.npy').astype(np.float64)
-X_val = np.load(cur_dir + f'raw_data/{run}/val_data_classifier.npy').astype(np.float64)
+X_train = np.load(cur_dir + f'raw_data/{run}/train_data_classifier_{input_shape[0]}.npy').astype(np.float64)
+X_test = np.load(cur_dir + f'raw_data/{run}/test_data_classifier_{input_shape[0]}.npy').astype(np.float64)
+X_val = np.load(cur_dir + f'raw_data/{run}/val_data_classifier_{input_shape[0]}.npy').astype(np.float64)
 X_train = X_train/np.max(X_train,axis=1)[:,None]
 X_test = X_test/np.max(X_test,axis=1)[:,None]
 X_val = X_val/np.max(X_val,axis=1)[:,None]
 
-Y_train = np.load(cur_dir + f'raw_data/{run}/train_labels_classifier.npy').astype(np.float64)
-Y_test = np.load(cur_dir + f'raw_data/{run}/test_labels_classifier.npy').astype(np.float64)
-Y_val = np.load(cur_dir + f'raw_data/{run}/val_labels_classifier.npy').astype(np.float64)
+Y_train = np.load(cur_dir + f'raw_data/{run}/train_labels_classifier_{input_shape[0]}.npy').astype(np.float64)
+Y_test = np.load(cur_dir + f'raw_data/{run}/test_labels_classifier_{input_shape[0]}.npy').astype(np.float64)
+Y_val = np.load(cur_dir + f'raw_data/{run}/val_labels_classifier_{input_shape[0]}.npy').astype(np.float64)
 
 
 X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
@@ -67,6 +74,67 @@ Y_train = (Y_train.reshape(Y_train.shape[0],1))
 Y_val = (Y_val.reshape(Y_val.shape[0],1))
 Y_test = (Y_test.reshape(Y_test.shape[0],1))
 
+
+train_indices = np.load(cur_dir + f'raw_data/{run}/train_indices_classifier_{input_shape[0]}.npy')
+test_indices = np.load(cur_dir + f'raw_data/{run}/test_indices_classifier_{input_shape[0]}.npy')
+val_indices = np.load(cur_dir + f'raw_data/{run}/val_indices_classifier_{input_shape[0]}.npy')
+
+def find_indices(small_list, big_list):
+    indices = []
+
+    for item in small_list:
+        if item in big_list:
+            index_list = np.where(big_list == item)
+            indices.extend(index_list[0])
+
+    return indices
+
+if snr_group != -1:
+
+    labels_df = pd.read_csv(root_dir + f'meta_data/labels_{run}.csv')
+    snr_range = labels_df['fold_snr_theory'].values
+    #snr_bins = np.array([0 , 0.068, 0.126, 0.184, 0.242, 0.3  ])
+    snr_bins = np.array([0 , 5, 30])
+
+    train_indices_group = labels_df['# ind'][(snr_range > snr_bins[snr_group]) & (snr_range < snr_bins[snr_group + 1]) & (labels_df['status'] == 'train')].values
+    test_indices_group = labels_df['# ind'][(snr_range > snr_bins[snr_group]) & (snr_range < snr_bins[snr_group + 1]) & (labels_df['status'] == 'test')].values
+    val_indices_group = labels_df['# ind'][(snr_range > snr_bins[snr_group]) & (snr_range < snr_bins[snr_group + 1]) & (labels_df['status'] == 'val')].values
+
+    train_indices_small = find_indices(train_indices_group, train_indices)
+    test_indices_small = find_indices(test_indices_group, test_indices)
+    val_indices_small = find_indices(val_indices_group, val_indices)
+
+    X_train = X_train[train_indices_small]
+    X_test = X_test[test_indices_small]
+    X_val = X_val[val_indices_small]
+
+    Y_train = Y_train[train_indices_small]
+    Y_test = Y_test[test_indices_small]
+    Y_val = Y_val[val_indices_small]
+
+# find 0 and 1 indices in Y_train
+Y_train_0 = np.where(Y_train == 0)[0]
+Y_train_1 = np.where(Y_train == 1)[0]
+Y_train_01 = np.concatenate((Y_train_0, Y_train_1), axis=0)
+np.random.shuffle(Y_train_01)
+Y_train = Y_train[Y_train_01]
+X_train = X_train[Y_train_01]
+
+# find 0 and 1 indices in Y_val
+Y_val_0 = np.where(Y_val == 0)[0]
+Y_val_1 = np.where(Y_val == 1)[0]
+Y_val_01 = np.concatenate((Y_val_0, Y_val_1), axis=0)
+np.random.shuffle(Y_val_01)
+Y_val = Y_val[Y_val_01]
+X_val = X_val[Y_val_01]
+
+# find 0 and 1 indices in Y_test
+Y_test_0 = np.where(Y_test == 0)[0]
+Y_test_1 = np.where(Y_test == 1)[0]
+Y_test_01 = np.concatenate((Y_test_0, Y_test_1), axis=0)
+np.random.shuffle(Y_test_01)
+Y_test = Y_test[Y_test_01]
+X_test = X_test[Y_test_01]
 myexecute(f'echo "Training data shape: {X_train.shape}"')
 myexecute(f'echo "Test data shape: {X_test.shape}"')
 myexecute(f'echo "Validation data shape: {X_val.shape}"')
@@ -177,7 +245,7 @@ def attention_model(input_shape = (400,2)):
     x = tf.keras.layers.Dense(64, activation='relu')(x)
     x = tf.keras.layers.Dense(192, activation='relu')(x)
     x = tf.keras.layers.Dense(256, activation='relu')(x)
-    outputs = tf.keras.layers.Dense(4, activation='softmax')(x)
+    outputs = tf.keras.layers.Dense(2, activation='softmax')(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
@@ -213,7 +281,7 @@ def cnn_model(input_shape = (400,2)):
     x = tf.keras.layers.Dense(64, activation='relu')(x)
     x = tf.keras.layers.Dense(128, activation='relu')(x)
     x = tf.keras.layers.Dense(256, activation='relu')(x)
-    outputs = tf.keras.layers.Dense(4, activation='softmax')(x)
+    outputs = tf.keras.layers.Dense(2, activation='softmax')(x)
 
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
@@ -235,6 +303,8 @@ def resnet_model(input_shape = (400,2)):
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
     return model
 
+param_dict['input_shape'] = input_shape
+models = Models(param_dict)
 def current_model(model_name = "deep",input_shape = (400,2)):
     if model_name == 'attention':
         return attention_model(input_shape=input_shape)
@@ -243,6 +313,7 @@ def current_model(model_name = "deep",input_shape = (400,2)):
     elif model_name == 'resnet':
         return resnet_model(input_shape=input_shape)
     elif model_name == 'cnn':
+        #return models.cnn()
         return cnn_model(input_shape=input_shape)
     elif model_name == 'LSTM':
         return LSTM_model(input_shape=input_shape)

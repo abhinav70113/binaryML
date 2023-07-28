@@ -4,5 +4,9 @@
 *.json
 *.npy
 *.h5
+*.png
+random_dir/
 logs/*
 hyperparameter_tuning/
+hyperparameter_tuning_high_snr/
+hyperparameter_tuning_runBC/

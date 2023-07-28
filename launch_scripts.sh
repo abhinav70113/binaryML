@@ -3,15 +3,20 @@
 # List of commands to run
 commands=(
   "sbatch tuner_attention_z.sh"
-  "sbatch tuner_attention_f.sh"
-  "sbatch tuner_attention_f.sh"
-  "sbatch tuner_attention_f.sh"
+  "sbatch tuner_attention_z.sh"
+  "sbatch tuner_attention_z.sh"
+  "sbatch tuner_classifier_attention.sh"
+  "sbatch tuner_classifier_attention.sh"
+  "sbatch tuner_classifier_attention.sh"
+  "sbatch tuner_classifier_cnn.sh"
+  "sbatch tuner_classifier_cnn.sh"
+  "sbatch tuner_classifier_cnn.sh"
 )
 
 # Function to execute a command and retry if it fails
 execute_command_with_retry() {
   local command=$1
-  local max_retries=5000000
+  local max_retries=50000000
   local retry_interval=600  # 10 minutes in seconds
   local retries=0
   local exit_code=1

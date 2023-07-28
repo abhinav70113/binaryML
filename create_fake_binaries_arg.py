@@ -10,7 +10,7 @@ def myexecute(cmd):
     os.system("echo '%s'"%cmd)
     os.system(cmd)
 
-run = 'BC'
+run = 'BD'
 size = 10000
 fft_size = 16777216
 #not done 18-24
