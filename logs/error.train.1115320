@@ -1,7 +1,0 @@
-/u/atya/conda-envs/tf-gpu4/bin/python: can't open file 'Zpredict_cnn_hyperparamtuner.py': [Errno 2] No such file or directory
-srun: error: hcg053: task 0: Exited with exit code 2
-srun: launch/slurm: _step_signal: Terminating StepId=1115320.0
-
-real	0m0.275s
-user	0m0.005s
-sys	0m0.008s
